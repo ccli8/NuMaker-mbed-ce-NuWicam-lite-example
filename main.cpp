@@ -45,9 +45,6 @@ void light_leds()
 {
     int i=0;
     USHORT usOutValue = ~usRegInputBuf[eData_DO];
-
-    //printf("[%s %d] 0x%08X\r\n", __func__, __LINE__,  usOutValue );
-    
     for ( i=0; i<DEF_LED_NUM ; i++)
         LED[i].write( (usOutValue&(0x1<<i)) >> i  );
 }
@@ -68,12 +65,9 @@ void get_temp(void)
         avg += a[i];
     
     avg /= DEF_ADC_READTIMES;
-    
-    //tempC=(avg*3.685503686*100);
-    tempC=3.3*avg*100;
+    tempC=(avg*3.685503686*100);
     usRegInputBuf[eData_TemperatureSensor] = (USHORT)tempC;
-
-    printf("[%s %d] %d\r\n", __func__, __LINE__,  usRegInputBuf[eData_TemperatureSensor]  );
+    //printf("[%s %d] %f %d\r\n", __func__, __LINE__, avg, usRegInputBuf[eData_TemperatureSensor]  );
 }
 
 void worker_get_temperature(void const *args)
@@ -89,9 +83,8 @@ void worker_get_temperature(void const *args)
 void worker_uart(void const *args)
 {   
     // For UART-SERIAL Tx/Rx Service.
-    while (true) {
+    while (true)
         xMBPortSerialPolling();
-    }
 }
 
 /* ----------------------- Start implementation -----------------------------*/
@@ -105,7 +98,9 @@ main( void )
     // Initialise some registers
     for (int i=0; i<REG_INPUT_NREGS; i++)
          usRegInputBuf[i] = 0x0;
-    
+
+    light_leds(); // Control LEDs
+            
     /* Enable the Modbus Protocol Stack. */
     if ( (eStatus = eMBInit( MB_RTU, SLAVE_ID, 0, 115200, MB_PAR_NONE )) !=  MB_ENOERR )
         goto FAIL_MB;
@@ -115,20 +110,18 @@ main( void )
         for( ;; )
         {
             if ( eMBPoll( ) != MB_ENOERR ) break;
-            Thread::wait(1);
-        }        
+        }       
     }    
-
+    
 FAIL_MB_1:
     eMBClose();    
-
+    
 FAIL_MB:
     for( ;; )
     {
         led2 = !led2;
         Thread::wait(200);
-    }    
-
+    }
 }
 
 
@@ -149,8 +142,6 @@ eMBRegInputCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNRegs )
     eMBErrorCode    eStatus = MB_ENOERR;
     int             iRegIndex;
     
-    //printf("[%s %d] %d %d\r\n", __func__, __LINE__, usAddress, REG_INPUT_START);
-
     if( ( usAddress >= REG_INPUT_START )
         && ( usAddress + usNRegs <= REG_INPUT_START + REG_INPUT_NREGS ) )
     {
@@ -178,9 +169,7 @@ eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNRegs, eMBRegi
 {
     eMBErrorCode    eStatus = MB_ENOERR;
     int             iRegIndex;
-    
-    //printf("[%s %d] Mode=%d usAddress=%d(%d) %d\r\n", __func__, __LINE__, eMode, usAddress, REG_INPUT_START, usNRegs);
- 
+     
     usRegInputBuf[eData_MBInCounter]++;
     usRegInputBuf[eData_MBOutCounter]++;
         
