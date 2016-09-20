@@ -1,6 +1,6 @@
 /*
 * The program is a sample code. 
-* It needs run with NuMaker NuWicam board.
+* It needs run with some NuMaker-PFM-NUC472 boards.
 */
 
 /* ----------------------- System includes --------------------------------*/
@@ -17,16 +17,12 @@ enum {
   eData_MBOutCounter,
   eData_MBError,  
   eData_DI,
-  eData_DO,
-  eData_RGB,
-  eData_MBResistorVar,
-  eData_TemperatureSensor,
+  eData_DATA,   
   eData_Cnt
 } E_DATA_TYPE;
 
 #define REG_INPUT_START 1
 #define REG_INPUT_NREGS eData_Cnt
-#define SLAVE_ID 0x01
 /* ----------------------- Static variables ---------------------------------*/
 static USHORT   usRegInputStart = REG_INPUT_START;
 static USHORT   usRegInputBuf[REG_INPUT_NREGS];
@@ -35,56 +31,33 @@ DigitalOut led1(LED1);  // For temperature worker.
 DigitalOut led2(LED2);  // For Modbus worker.
 DigitalOut led3(LED3);  // For Holder CB
 
-AnalogIn   LM35(A0);
+#define DEF_PIN_NUM 6
+DigitalIn DipSwitch[DEF_PIN_NUM] = { PG_1, PG_2, PF_9, PF_10, PC_10, PC_11 } ;
 
-#define DEF_LED_NUM 6
-DigitalOut LED[DEF_LED_NUM] = { PF_9, PF_10, PC_10, PC_11, PA_10, PA_9 } ;
-
-
-void light_leds()
+unsigned short GetValueOnDipSwitch()
 {
     int i=0;
-    USHORT usOutValue = ~usRegInputBuf[eData_DO];
-    for ( i=0; i<DEF_LED_NUM ; i++)
-        LED[i].write( (usOutValue&(0x1<<i)) >> i  );
-}
-
-void get_temp(void)
-{
-    float tempC, a[10], avg;
-    int i;
-    #define DEF_ADC_READTIMES   10
-    avg=0;
-    for(i=0;i<DEF_ADC_READTIMES;i++)
-    {
-        a[i] = LM35.read();
-        Thread::wait(1);
-    }
-    
-    for ( i=0; i<DEF_ADC_READTIMES; i++ )
-        avg += a[i];
-    
-    avg /= DEF_ADC_READTIMES;
-    tempC=(avg*3.685503686*100);
-    usRegInputBuf[eData_TemperatureSensor] = (USHORT)tempC;
-    //printf("[%s %d] %f %d\r\n", __func__, __LINE__, avg, usRegInputBuf[eData_TemperatureSensor]  );
-}
-
-void worker_get_temperature(void const *args)
-{
-    // Poll temperature sensor per 1 second.
-    while (true) {
-        get_temp();
-        led1 = !led1;
-        Thread::wait(1000);
-    }
+    unsigned short usDipValue = 0x0;
+    for ( i=0; i<DEF_PIN_NUM ; i++)
+        usDipValue |= DipSwitch[i].read() << i;
+    usDipValue = (~usDipValue) & 0x003F;
+    return usDipValue;
 }
 
 void worker_uart(void const *args)
 {   
+    int counter=0;
     // For UART-SERIAL Tx/Rx Service.
     while (true)
-        xMBPortSerialPolling();
+    {
+        //xMBPortSerialPolling();
+        if ( counter > 10000 )
+        {
+            led2 = !led2;
+            counter=0;
+        }    
+        counter++;
+    }
 }
 
 /* ----------------------- Start implementation -----------------------------*/
@@ -92,23 +65,24 @@ int
 main( void )
 {
     eMBErrorCode    eStatus;
-    Thread temperature_thread(worker_get_temperature);
-    Thread uart_thread(worker_uart);
+    //Thread uart_thread(worker_uart);
+    unsigned short usSlaveID=GetValueOnDipSwitch();
     
     // Initialise some registers
     for (int i=0; i<REG_INPUT_NREGS; i++)
          usRegInputBuf[i] = 0x0;
+    
+    printf("We will set modbus slave ID-%d(0x%x) for the device.\r\n", usSlaveID, usSlaveID );
 
-    light_leds(); // Control LEDs
-            
     /* Enable the Modbus Protocol Stack. */
-    if ( (eStatus = eMBInit( MB_RTU, SLAVE_ID, 0, 115200, MB_PAR_NONE )) !=  MB_ENOERR )
+    if ( (eStatus = eMBInit( MB_RTU, usSlaveID, 0, 115200, MB_PAR_NONE )) !=  MB_ENOERR )
         goto FAIL_MB;
     else if ( (eStatus = eMBEnable(  ) ) != MB_ENOERR )
         goto FAIL_MB_1;
     else {
         for( ;; )
         {
+            xMBPortSerialPolling();
             if ( eMBPoll( ) != MB_ENOERR ) break;
         }       
     }    
@@ -123,15 +97,6 @@ FAIL_MB:
         Thread::wait(200);
     }
 }
-
-
-
-
-
-
-
-
-
 
 
 
@@ -175,6 +140,8 @@ eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNRegs, eMBRegi
         
     if (eMode == MB_REG_READ)
     {
+        usRegInputBuf[eData_DI] = GetValueOnDipSwitch();
+
         if( ( usAddress >= REG_INPUT_START )
             && ( usAddress + usNRegs <= REG_INPUT_START + REG_INPUT_NREGS ) )
         {
@@ -204,7 +171,6 @@ eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNRegs, eMBRegi
                 iRegIndex++;
                 usNRegs--;
             }
-            light_leds(); // Control LEDs
         }
     }
 
