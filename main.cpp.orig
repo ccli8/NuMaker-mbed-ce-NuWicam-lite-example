@@ -80,14 +80,12 @@ void worker_get_temperature(void const *args)
     }
 }
 
-#if 0
 void worker_uart(void const *args)
 {   
     // For UART-SERIAL Tx/Rx Service.
     while (true)
         xMBPortSerialPolling();
 }
-#endif
 
 /* ----------------------- Start implementation -----------------------------*/
 int
