@@ -38,8 +38,11 @@ DigitalOut led3(LED3);  // For Holder CB
 AnalogIn   LM35(A0);
 
 #define DEF_LED_NUM 6
+#if defined(TARGET_NUMAKER_PFM_NUC472)
 DigitalOut LED[DEF_LED_NUM] = { PF_9, PF_10, PC_10, PC_11, PA_10, PA_9 } ;
-
+#elif defined(TARGET_NUMAKER_PFM_M453)
+DigitalOut LED[DEF_LED_NUM] = { PC_6, PC_7, PC_11, PC_12, PC_13, PC_14 } ;
+#endif
 
 void light_leds()
 {
