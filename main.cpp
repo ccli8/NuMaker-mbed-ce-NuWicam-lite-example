@@ -42,6 +42,8 @@ AnalogIn   LM35(A0);
 DigitalOut LED[DEF_LED_NUM] = { PF_9, PF_10, PC_10, PC_11, PA_10, PA_9 } ;
 #elif defined(TARGET_NUMAKER_PFM_M453)
 DigitalOut LED[DEF_LED_NUM] = { PC_6, PC_7, PC_11, PC_12, PC_13, PC_14 } ;
+#elif defined(TARGET_NUMAKER_PFM_M487)
+DigitalOut LED[DEF_LED_NUM] = { PH_9, PH_8, PB_9, PF_11, PG_4, PC_11 } ;
 #endif
 
 void light_leds()
