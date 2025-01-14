@@ -63,7 +63,7 @@ void get_temp(void)
     for(i=0;i<DEF_ADC_READTIMES;i++)
     {
         a[i] = LM35.read();
-        Thread::wait(1);
+        ThisThread::sleep_for(1s);
     }
     
     for ( i=0; i<DEF_ADC_READTIMES; i++ )
@@ -75,18 +75,18 @@ void get_temp(void)
     //printf("[%s %d] %f %d\r\n", __func__, __LINE__, avg, usRegInputBuf[eData_TemperatureSensor]  );
 }
 
-void worker_get_temperature(void const *args)
+void worker_get_temperature()
 {
     // Poll temperature sensor per 1 second.
     while (true) {
         get_temp();
         led1 = !led1;
-        Thread::wait(1000);
+        ThisThread::sleep_for(1000ms);
     }
 }
 
 #if 0
-void worker_uart(void const *args)
+void worker_uart()
 {   
     // For UART-SERIAL Tx/Rx Service.
     while (true)
@@ -99,9 +99,16 @@ int
 main( void )
 {
     eMBErrorCode    eStatus;
-    Thread temperature_thread(worker_get_temperature);
-    //Thread uart_thread(worker_uart);
     
+
+    Thread temperature_thread;
+    temperature_thread.start(callback(worker_get_temperature));
+    
+#if 0
+    Thread uart_thread;
+    uart_thread.start(callback(worker_uart));
+#endif
+
     // Initialise some registers
     for (int i=0; i<REG_INPUT_NREGS; i++)
          usRegInputBuf[i] = 0x0;
@@ -128,7 +135,7 @@ FAIL_MB:
     for( ;; )
     {
         led2 = !led2;
-        Thread::wait(200);
+        ThisThread::sleep_for(200ms);
     }
 }
 
